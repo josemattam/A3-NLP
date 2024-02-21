@@ -9,6 +9,8 @@ from torch import optim
 import matplotlib.pyplot as plt
 from typing import List
 from utils import *
+import torch.nn.functional as F
+import math
 
 
 # Wraps an example: stores the raw input string (input), the indexed form of the string (input_indexed),
@@ -29,6 +31,8 @@ class LetterCountingExample(object):
 # a single layer of the Transformer; this Module will take the raw words as input and do all of the steps necessary
 # to return distributions over the labels (0, 1, or 2).
 class Transformer(nn.Module):
+
+
     def __init__(self, vocab_size, num_positions, d_model, d_internal, num_classes, num_layers):
         """
         :param vocab_size: vocabulary size of the embedding layer
@@ -53,19 +57,48 @@ class Transformer(nn.Module):
 
 # Your implementation of the Transformer layer goes here. It should take vectors and return the same number of vectors
 # of the same length, applying self-attention, the feedforward layer, etc.
-class TransformerLayer(nn.Module):
+class TransformerLayer(nn.Module):        
+
     def __init__(self, d_model, d_internal):
         """
         :param d_model: The dimension of the inputs and outputs of the layer (note that the inputs and outputs
         have to be the same size for the residual connection to work)
         :param d_internal: The "internal" dimension used in the self-attention computation. Your keys and queries
         should both be of this length.
-        """
+        """   
         super().__init__()
-        raise Exception("Implement me")
+
+        # attention
+        self.final = torch.nn.Linear(in_features= d_model, out_features= d_internal)
+        self.key = torch.nn.Linear(in_features= d_model, out_features= d_internal)
+        self.value = torch.nn.Linear(in_features= d_model, out_features= d_internal)
+        self.query = torch.nn.Linear(in_features= d_model, out_features= d_internal)
+
+        # FNN
+        self.fnn_lin1 = nn.Linear(d_model, d_internal)
+        self.fnn_relu = nn.ReLU()
+        self.fnn_lin2 = nn.Linear(d_internal, d_model)
+
+        # tf
+        self.denom = math.sqrt(d_internal) # no tensor?
+        self.SM = nn.Softmax(dim= -1)
+
 
     def forward(self, input_vecs):
-        raise Exception("Implement me")
+        key = self.key(input_vecs)
+        value = self.value(input_vecs)
+        query = self.query(input_vecs)
+
+        mult = torch.matmul(query, key.transpose(-2, -1)) / self.denom
+        SM = self.SM(mult)
+        z = torch.matmul(SM, value)
+        residual = self.final(z) + input_vecs
+
+        fnn = self.fnn_lin1(residual)
+        fnn = self.fnn_relu(fnn)
+        fnn = self.fnn_lin2(fnn) + residual
+
+        return fnn, SM
 
 
 # Implementation of positional encoding that you can use in your network
