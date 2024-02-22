@@ -65,7 +65,7 @@ class Transformer(nn.Module):
         for layer in self.tfLayers:
             embedding, attention = layer(embedding)
             layer_output.append(embedding)
-            attn_output(attention)
+            attn_output.append(attention)
 
         embedding = self.lin(embedding)
         # log of probabilities
@@ -161,7 +161,7 @@ def train_classifier(args, train, dev):
 
     # The following code DOES NOT WORK but can be a starting point for your implementation
     # Some suggested snippets to use:
-    model = Transformer(vocab_size= 30, num_positions= 20, d_model= 64, d_internal= 40, num_classes= 2, num_layers= 1)
+    model = Transformer(vocab_size= 30, num_positions= 20, d_model= 40, d_internal= 40, num_classes= 2, num_layers= 1)
     model.to(device= device)
     model.train()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
