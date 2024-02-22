@@ -43,7 +43,13 @@ class Transformer(nn.Module):
         :param num_layers: number of TransformerLayers to use; can be whatever you want
         """
         super().__init__()
-        raise Exception("Implement me")
+        self.tfLayers = nn.ModuleList([TransformerLayer(d_model= d_model, d_internal= d_internal) 
+                                       for i in range(num_layers)])
+
+        self.lin = nn.Linear(in_features= d_model, out_features= num_classes)
+        self.SM = nn.LogSoftmax(dim= 1)
+        self.embedding = nn.Embedding(embedding_dim= d_model, num_embeddings= vocab_size)
+
 
     def forward(self, indices):
         """
@@ -52,7 +58,21 @@ class Transformer(nn.Module):
         :return: A tuple of the softmax log probabilities (should be a 20x3 matrix) and a list of the attention
         maps you use in your layers (can be variable length, but each should be a 20x20 matrix)
         """
-        raise Exception("Implement me")
+        embedding = self.embedding(indices)
+        layer_output = []
+        attn_output = []
+
+        for layer in self.tfLayers:
+            embedding, attention = layer(embedding)
+            layer_output.append(embedding)
+            attn_output(attention)
+
+        embedding = self.lin(embedding)
+        # log of probabilities
+        output = self.SM(embedding)
+        return (output, attn_output) # layer_output?
+        
+
 
 
 # Your implementation of the Transformer layer goes here. It should take vectors and return the same number of vectors
@@ -79,7 +99,7 @@ class TransformerLayer(nn.Module):
         self.fnn_relu = nn.ReLU()
         self.fnn_lin2 = nn.Linear(d_internal, d_model)
 
-        # tf
+        # tf rest
         self.denom = math.sqrt(d_internal) # no tensor?
         self.SM = nn.Softmax(dim= -1)
 
@@ -136,14 +156,15 @@ class PositionalEncoding(nn.Module):
 
 # This is a skeleton for train_classifier: you can implement this however you want
 def train_classifier(args, train, dev):
-    raise Exception("Not fully implemented yet")
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
 
     # The following code DOES NOT WORK but can be a starting point for your implementation
     # Some suggested snippets to use:
-    model = Transformer(...)
-    model.zero_grad()
+    model = Transformer(vocab_size= 30, num_positions= 20, d_model= 64, d_internal= 40, num_classes= 2, num_layers= 1)
+    model.to(device= device)
     model.train()
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     num_epochs = 10
     for t in range(0, num_epochs):
@@ -154,10 +175,14 @@ def train_classifier(args, train, dev):
         random.shuffle(ex_idxs)
         loss_fcn = nn.NLLLoss()
         for ex_idx in ex_idxs:
-            loss = loss_fcn(...) # TODO: Run forward and compute loss
-            # model.zero_grad()
-            # loss.backward()
-            # optimizer.step()
+            train_ex = train[ex_idx]
+            input_tensor = train_ex.input_tensor # donno where this comes from??
+            input_tensor = input_tensor.to(device= device)
+            (output, attn_output) = model(input_tensor) 
+            loss = loss_fcn(output, train_ex.output_tensor.to(device)) # TODO: Run forward and compute loss
+            model.zero_grad()
+            loss.backward()
+            optimizer.step()
             loss_this_epoch += loss.item()
     model.eval()
     return model
